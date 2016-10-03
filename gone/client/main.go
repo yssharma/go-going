@@ -2,54 +2,61 @@ package main
 
 /* Al useful imports */
 import (
+    "bufio"
+    "bytes"
+    "encoding/json"
     "flag"
     "fmt"
+    "io/ioutil"
     "net"
+    "net/http"
     "strings"
-    "time"
-    "encoding/json"
-
-    "go-going/gone/messages"
+    //"time"
+    "os"
+    //"go-going/gone/messages"
 )
 
+type test_struct struct {
+    Test string
+}
 
 func main(){
     /* Parse the provided parameters on command line */
-    clusterip := flag.String("clusterip", "127.0.0.1:8001", "ip address of any node to connnect")
-    myport := flag.String("myport", "9001", "ip address to run client on. default is 9001.")
+    clusterip := flag.String("clusterip", "127.0.0.1:9001", "ip address of any node to connnect")
     flag.Parse()
 
     myIp,_ := net.InterfaceAddrs()
-    me := messages.NodeInfo{ NodeId: -1, NodeIpAddr: myIp[0].String(), Port: *myport}
-    remote := messages.NodeInfo{ NodeId: -1, NodeIpAddr: strings.Split(*clusterip, ":")[0], Port: strings.Split(*clusterip, ":")[1]}
 
     /* Try to connect to the cluster, and send request to cluster if able to connect */
-    fmt.Println("Initiating client. Connecting to cluster.", remote)
-    connectToCluster(me, remote)
+    fmt.Println("Initiating client. Connecting to cluster.")
+    connectToCluster(myIp[0].String(), *clusterip)
 }
 
 
-func connectToCluster(me messages.NodeInfo, remote messages.NodeInfo) (bool){
-    /* connect to this socket details provided */
-    connOut, err := net.DialTimeout("tcp", remote.NodeIpAddr + ":" + remote.Port, time.Duration(10) * time.Second)
-    if err != nil {
-        if _, ok := err.(net.Error); ok {
-            fmt.Println("Couldn't connect to cluster.", me.NodeId)
-            return false
-        }
-    } else {
-        fmt.Println("Connected to cluster. Sending message to node.")
-        text := "Hi Cluster.. I am a client.."
-        requestMessage := messages.GetAddToClusterMessage(me, remote, text)
-        json.NewEncoder(connOut).Encode(&requestMessage)
+func connectToCluster(myIp string, clusterip string) {
+    url := fmt.Sprintf("http://%s/query", clusterip)
+    fmt.Println("URL: ", url)
 
-        decoder := json.NewDecoder(connOut)
-        var responseMessage messages.AddToClusterMessage
-        decoder.Decode(&responseMessage)
-        fmt.Println("Got response:\n" + responseMessage.String())
-        
-        return true
+    for {
+        query, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+        //commandJson := fmt.Sprintf(`{"Query" : "%s"}`, strings.TrimSpace(query))
+
+        commandJson := test_struct{
+            Test : strings.TrimSpace(query),
+        }
+        fmt.Println("Json req:", commandJson)
+        var buf []byte
+        buf, _ = json.Marshal(commandJson)
+
+        req, _ := http.NewRequest("POST", url, bytes.NewBuffer(buf))
+        req.Header.Set("X-Custom-Header", "myvalue")
+        req.Header.Set("Content-Type", "application/json")
+
+        client := &http.Client{}
+        resp, _ := client.Do(req)
+        //defer resp.Body.Close()
+        body, _ := ioutil.ReadAll(resp.Body)
+        fmt.Println(body)
     }
-    return false
 }
 

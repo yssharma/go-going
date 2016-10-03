@@ -4,12 +4,12 @@ package main
 import (
     "flag"
     "fmt"
+    "net/http"
     "net"
     "strings"
     "time"
     "math/rand"
     "encoding/json"
-
     "go-going/gone/messages"
 )
 
@@ -21,7 +21,6 @@ func main(){
     clusterip := flag.String("clusterip", "127.0.0.1:8001", "ip address of any node to connnect")
     myport := flag.String("myport", "8001", "ip address to run this node on. default is 8001.")
     flag.Parse()
-    clientPort := "9001"
 
     /* Generate id for myself */
     rand.Seed(time.Now().UTC().UnixNano())
@@ -39,19 +38,18 @@ func main(){
      * Listen for other incoming requests form other nodes to join cluster
      * Note: We are not doing anything fancy right now to make this node as master. Not yet!
      */
-    isMaster := false
-    if ableToConnect || (!ableToConnect && *makeMasterOnError) {
-        if *makeMasterOnError {
-            fmt.Println("Will start this node as master.")
-            isMaster = true
-        }
+    //isMaster := false
+    
+    if !ableToConnect && *makeMasterOnError {
+        fmt.Println("Will start this node as master.")
+        //isMaster = true
+        startHttpServer()
+        listenOnPort(me)
+    } else if ableToConnect {
+        fmt.Println("Will start this node as slave.")
         listenOnPort(me)
     } else {
         fmt.Println("Quitting system. Set makeMasterOnError flag to make the node master.", myid)
-    }
-
-    if isMaster {
-        listenForClient(me, clientPort)
     }
 }
 
@@ -81,7 +79,6 @@ func connectToCluster(me messages.NodeInfo, dest messages.NodeInfo) (bool){
 }
 
 
-
 func listenOnPort(me messages.NodeInfo){
     /* Listen for incoming messages */
     ln, _ := net.Listen("tcp", fmt.Sprint(":" + me.Port))
@@ -107,26 +104,20 @@ func listenOnPort(me messages.NodeInfo){
 }
 
 
-func listenForClient(me messages.NodeInfo, clientPort string){
-    /* Listen for incoming messages */
-    ln, _ := net.Listen("tcp", fmt.Sprint(":" + me.Port))
-    /* accept connection on port */
-    /* not sure if looping infinetely on ln.Accept() is good idea */
-    for{
-        connIn, err := ln.Accept()
-        if err != nil {
-            if _, ok := err.(net.Error); ok {
-                fmt.Println("Error received while listening.", me.NodeId)
-            }
-        } else {
-            var requestMessage messages.AddToClusterMessage
-            json.NewDecoder(connIn).Decode(&requestMessage)
-            fmt.Println("Got request:\n" + requestMessage.String())
+func startHttpServer() {
+    fmt.Println("Starting http server.")
+    http.HandleFunc("/query", queryHandler)
+    http.ListenAndServe(":9001", nil)
+}
 
-            text := "Hi Client !"
-            responseMessage := messages.GetAddToClusterMessage(me, requestMessage.Source, text)
-            json.NewEncoder(connIn).Encode(&responseMessage)
-            connIn.Close()
-        }
-    }
+type test_struct struct {
+    Test string
+}
+
+func queryHandler(w http.ResponseWriter, r *http.Request) {
+    fmt.Println("Got request....")
+    decoder := json.NewDecoder(r.Body)
+    var t test_struct
+    decoder.Decode(&t)
+    fmt.Println("Got request string : ", t.Test)
 }
