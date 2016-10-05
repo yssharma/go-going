@@ -6,12 +6,16 @@ import (
     "fmt"
     "net/http"
     "net"
+    "os"
     "strings"
     "time"
     "math/rand"
     "encoding/json"
     "go-going/gone/messages"
 )
+
+
+var me messages.NodeInfo
 
 
 /* The entry point for our System */
@@ -27,7 +31,7 @@ func main(){
     myid := rand.Intn(99999999)
 
     myIp,_ := net.InterfaceAddrs()
-    me := messages.NodeInfo{ NodeId: myid, NodeIpAddr: myIp[0].String(),  Port: *myport}
+    me = messages.NodeInfo{ NodeId: myid, NodeIpAddr: myIp[0].String(),  Port: *myport}
     dest := messages.NodeInfo{ NodeId: -1, NodeIpAddr: strings.Split(*clusterip, ":")[0], Port: strings.Split(*clusterip, ":")[1]}
     fmt.Println("My details:", me.String())
 
@@ -39,17 +43,22 @@ func main(){
      * Note: We are not doing anything fancy right now to make this node as master. Not yet!
      */
     //isMaster := false
+
+     // Start HTTP server on every node //
+    // Todo : Use Nginx to load balance the http servers //
+    // Also handle dns rebalancing with nginx when few nodes are down //
+    startHttpServer()
     
     if !ableToConnect && *makeMasterOnError {
         fmt.Println("Will start this node as master.")
         //isMaster = true
-        startHttpServer()
         listenOnPort(me)
     } else if ableToConnect {
         fmt.Println("Will start this node as slave.")
         listenOnPort(me)
     } else {
         fmt.Println("Quitting system. Set makeMasterOnError flag to make the node master.", myid)
+        os.Exit(-1)
     }
 }
 
@@ -107,17 +116,17 @@ func listenOnPort(me messages.NodeInfo){
 func startHttpServer() {
     fmt.Println("Starting http server.")
     http.HandleFunc("/query", queryHandler)
+    http.HandleFunc("/", homeHandler)
     http.ListenAndServe(":9001", nil)
 }
 
-type test_struct struct {
-    Test string
+func queryHandler(w http.ResponseWriter, r *http.Request) {
+    decoder := json.NewDecoder(r.Body)
+    var t messages.JsonRequest
+    decoder.Decode(&t)
+    fmt.Println("Got request string : ", t.JsonRequestString)
 }
 
-func queryHandler(w http.ResponseWriter, r *http.Request) {
-    fmt.Println("Got request....")
-    decoder := json.NewDecoder(r.Body)
-    var t test_struct
-    decoder.Decode(&t)
-    fmt.Println("Got request string : ", t.Test)
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Me : ", me.String())
 }

@@ -5,6 +5,10 @@ import (
     "strconv"
 )
 
+type JsonRequest struct {
+    JsonRequestString string
+}
+
 /* Information/Metadata about node */
 type NodeInfo struct {
     NodeId  int  `json:"nodeId"`
