@@ -6,7 +6,11 @@ import (
 )
 
 type JsonRequest struct {
-    JsonRequestString string
+    JsonRequestString string `json:"jsonRequestString"`
+}
+
+type JsonResponse struct {
+    JsonResponseString string `json:"jsonResponseString"`
 }
 
 /* Information/Metadata about node */

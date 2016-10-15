@@ -48,6 +48,7 @@ func main(){
     // Todo : Use Nginx to load balance the http servers //
     // Also handle dns rebalancing with nginx when few nodes are down //
     startHttpServer()
+    fmt.Println("Unblocked.")
     
     if !ableToConnect && *makeMasterOnError {
         fmt.Println("Will start this node as master.")

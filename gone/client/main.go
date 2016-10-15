@@ -13,12 +13,8 @@ import (
     "strings"
     //"time"
     "os"
-    //"go-going/gone/messages"
+    "go-going/gone/messages"
 )
-
-type test_struct struct {
-    Test string
-}
 
 func main(){
     /* Parse the provided parameters on command line */
@@ -41,15 +37,15 @@ func connectToCluster(myIp string, clusterip string) {
         query, _ := bufio.NewReader(os.Stdin).ReadString('\n')
         //commandJson := fmt.Sprintf(`{"Query" : "%s"}`, strings.TrimSpace(query))
 
-        commandJson := test_struct{
-            Test : strings.TrimSpace(query),
+        commandJson := messages.JsonRequest{
+            JsonRequestString : strings.TrimSpace(query),
         }
         fmt.Println("Json req:", commandJson)
         var buf []byte
         buf, _ = json.Marshal(commandJson)
 
         req, _ := http.NewRequest("POST", url, bytes.NewBuffer(buf))
-        req.Header.Set("X-Custom-Header", "myvalue")
+        //req.Header.Set("X-Custom-Header", "myvalue")
         req.Header.Set("Content-Type", "application/json")
 
         client := &http.Client{}
